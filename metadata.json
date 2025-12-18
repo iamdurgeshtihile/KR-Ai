@@ -1,0 +1,7 @@
+{
+  "name": "Kisan-Rakshak AI",
+  "description": "A smart diagnostic tool for farmers powered by Gemini AI, featuring animal behavior detection, veterinary derm-scan, and crop disease diagnosis.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
