@@ -35,22 +35,23 @@ const KrishiClawPanel: React.FC<KrishiClawPanelProps> = ({ language, farmContext
   const [pendingConfirmation, setPendingConfirmation] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [isSimulating, setIsSimulating] = useState(false);
   const [autoIrrigation, setAutoIrrigation] = useState(false);
   const [moistureThreshold, setMoistureThreshold] = useState(3000); // Default threshold for raw analogRead
   const [lastAutoTrigger, setLastAutoTrigger] = useState(0);
+  const [lastTelemetrySync, setLastTelemetrySync] = useState<number | null>(null);
 
+  // Heartbeat check for online/offline status
   useEffect(() => {
-    if (isSimulating && currentOperation && currentOperation.status === 'pending') {
-      const timer = setTimeout(async () => {
-        await krishiClawService.updateTaskStatus(currentOperation.id, 'executing', 50);
-        setTimeout(async () => {
-          await krishiClawService.updateTaskStatus(currentOperation.id, 'completed', 100);
-        }, 2000);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isSimulating, currentOperation]);
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setDevices(prev => prev.map(dev => {
+        // If last update was more than 30 seconds ago, mark as offline
+        const isOffline = !dev.lastUpdate || (now - dev.lastUpdate > 30000);
+        return { ...dev, status: isOffline ? 'offline' : 'online' };
+      }));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     // Listen to RTDB Telemetry
@@ -58,12 +59,14 @@ const KrishiClawPanel: React.FC<KrishiClawPanelProps> = ({ language, farmContext
     const onTelemetryChange = (snapshot: any) => {
       const data = snapshot.val();
       if (data) {
+        setLastTelemetrySync(Date.now());
         // Auto-irrigation logic
         if (autoIrrigation && data.soilMoisture > moistureThreshold && Date.now() - lastAutoTrigger > 60000) {
           // Note: Higher raw value usually means drier soil for many analog sensors
           // Adjusting logic: if soilMoisture > threshold (dry), trigger pump
-          if (!currentOperation || currentOperation.status === 'completed') {
-            handleCommand('Auto-Irrigation: Soil is dry');
+          if (!currentOperation || currentOperation.status === 'completed' || currentOperation.status === 'failed') {
+            setExecutionLog(prev => [`[${new Date().toLocaleTimeString()}] 🤖 Auto-Irrigation Triggered: Soil is dry (${data.soilMoisture})`, ...prev]);
+            krishiClawService.createHardwareTask('IRRIGATION', { auto: true, moisture: data.soilMoisture });
             setLastAutoTrigger(Date.now());
           }
         }
@@ -219,8 +222,10 @@ const KrishiClawPanel: React.FC<KrishiClawPanelProps> = ({ language, farmContext
             {t('krishiclaw_desc', language.code)}
           </p>
           <div className="mt-4 flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{t('system_online', language.code)}</span>
+            <span className={`w-2 h-2 rounded-full ${lastTelemetrySync && (Date.now() - lastTelemetrySync < 30000) ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
+            <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
+              {lastTelemetrySync && (Date.now() - lastTelemetrySync < 30000) ? t('system_online', language.code) : 'Hardware Offline'}
+            </span>
           </div>
         </div>
       </div>
@@ -289,24 +294,51 @@ const KrishiClawPanel: React.FC<KrishiClawPanelProps> = ({ language, farmContext
 
         {/* Device Status */}
         <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-agri-sand/50 space-y-6">
-          <h3 className="text-xl font-black text-agri-forest flex items-center gap-2">
-            <Cpu className="w-6 h-6" /> {t('iot_network', language.code)}
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-black text-agri-forest flex items-center gap-2">
+              <Cpu className="w-6 h-6" /> {t('iot_network', language.code)}
+            </h3>
+            {lastTelemetrySync && (
+              <span className="text-[8px] font-black text-agri-moss uppercase tracking-widest opacity-50">
+                Last Sync: {new Date(lastTelemetrySync).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
           
           <div className="grid grid-cols-2 gap-4">
             {devices.map((device) => (
               <div key={device.id} className="p-5 bg-slate-50 rounded-3xl border border-agri-sand/30 relative overflow-hidden group">
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-2">
-                    <div className={`w-2 h-2 rounded-full ${device.status === 'online' ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <CheckCircle className="w-4 h-4 text-agri-moss opacity-20 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${device.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                      <span className={`text-[8px] font-black uppercase tracking-widest ${device.status === 'online' ? 'text-green-600' : 'text-red-600'}`}>
+                        {device.status}
+                      </span>
+                    </div>
+                    <CheckCircle className={`w-4 h-4 transition-opacity ${device.status === 'online' ? 'text-agri-moss opacity-100' : 'text-agri-sand opacity-20'}`} />
                   </div>
                   <p className="font-black text-agri-forest text-sm leading-tight mb-1">{device.name}</p>
                   <p className="text-[9px] font-bold text-agri-moss uppercase tracking-widest">{device.type}</p>
-                  {device.currentReading !== undefined && (
-                    <div className="mt-3 flex items-baseline gap-1">
-                      <span className="text-xl font-black text-agri-forest">{device.currentReading}</span>
-                      <span className="text-[10px] font-bold text-agri-moss">{device.type === 'sensor' ? '%' : '°C'}</span>
+                  {device.currentReading !== undefined && device.currentReading !== 0 ? (
+                    <div className="mt-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-black text-agri-forest">{device.currentReading}</span>
+                        <span className="text-[10px] font-bold text-agri-moss">
+                          {device.id.includes('soil') || device.id.includes('pump') ? 'raw' : 
+                           device.id.includes('hum') ? '%' : '°C'}
+                        </span>
+                        <span className="ml-2 w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                      </div>
+                      {device.lastUpdate > 0 && (
+                        <p className="text-[7px] font-bold text-agri-moss/40 uppercase mt-1">
+                          Updated {Math.floor((Date.now() - device.lastUpdate) / 1000)}s ago
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-[10px] font-bold text-agri-moss opacity-40 italic">
+                      Waiting for data...
                     </div>
                   )}
                 </div>
@@ -323,12 +355,6 @@ const KrishiClawPanel: React.FC<KrishiClawPanelProps> = ({ language, farmContext
             </h3>
             {currentOperation && (
               <div className="flex items-center gap-4">
-                <button 
-                  onClick={() => setIsSimulating(!isSimulating)}
-                  className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${isSimulating ? 'bg-orange-100 text-orange-600' : 'bg-slate-100 text-slate-400'}`}
-                >
-                  {isSimulating ? 'Simulating' : 'Manual Mode'}
-                </button>
                 <span className="px-4 py-1.5 bg-blue-100 text-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest">
                   {currentOperation.status}
                 </span>
@@ -479,9 +505,17 @@ const KrishiClawPanel: React.FC<KrishiClawPanelProps> = ({ language, farmContext
             onChange={(e) => setMoistureThreshold(parseInt(e.target.value))}
             className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
           />
-          <p className="text-[10px] font-bold text-blue-700/60 leading-relaxed italic">
-            * Higher values usually indicate drier soil on ESP32 analog pins. The pump will trigger automatically when moisture exceeds this value.
-          </p>
+          <div className="p-4 bg-white/50 rounded-2xl border border-blue-200 space-y-2">
+            <p className="text-[10px] font-bold text-blue-700 leading-relaxed">
+              💡 <span className="uppercase">Troubleshooting 4095 Reading:</span>
+            </p>
+            <ul className="text-[9px] text-blue-800/70 list-disc pl-4 space-y-1 font-medium">
+              <li>If reading is stuck at 4095, the sensor is likely disconnected or in completely dry soil.</li>
+              <li>Check if the sensor is connected to **GPIO 34** (Analog Pin).</li>
+              <li>Ensure the sensor is powered (VCC to 3.3V or 5V).</li>
+              <li>Try dipping the sensor in a glass of water; the value should drop towards 0.</li>
+            </ul>
+          </div>
         </div>
 
         {autoIrrigation && (

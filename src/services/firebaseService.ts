@@ -4,15 +4,17 @@ import firebase from "firebase/compat/app";
 import "firebase/compat/firestore";
 import "firebase/compat/auth";
 import "firebase/compat/database";
+import firebaseAppletConfig from "../../firebase-applet-config.json";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCl8IvUyOaKyoVkapcHuoi5MKPjIq1YUjA",
-  authDomain: "krishix-36276.firebaseapp.com",
-  projectId: "krishix-36276",
-  storageBucket: "krishix-36276.firebasestorage.app",
-  messagingSenderId: "59580637677",
-  appId: "1:59580637677:web:900bb8ac2d0070565347e4",
-  databaseURL: "https://krishix-36276-default-rtdb.firebaseio.com"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseAppletConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseAppletConfig.authDomain,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || firebaseAppletConfig.databaseURL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseAppletConfig.projectId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseAppletConfig.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseAppletConfig.messagingSenderId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseAppletConfig.appId,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseAppletConfig.measurementId
 };
 
 // Initialize Firebase using compat mode

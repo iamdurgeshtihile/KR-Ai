@@ -30,10 +30,10 @@ export interface FarmOperation {
 class KrishiClawService {
   async getDevices(): Promise<HardwareDevice[]> {
     return [
-      { id: 'pump-001', name: 'ESP32 Irrigation Pump', type: 'pump', status: 'online', lastUpdate: Date.now(), currentReading: 0 },
-      { id: 'ws-001', name: 'DHT11 Temp Sensor', type: 'weather_station', status: 'online', lastUpdate: Date.now(), currentReading: 0 },
-      { id: 'hum-001', name: 'DHT11 Humidity Sensor', type: 'sensor', status: 'online', lastUpdate: Date.now(), currentReading: 0 },
-      { id: 'soil-001', name: 'Soil Moisture Sensor', type: 'sensor', status: 'online', lastUpdate: Date.now(), currentReading: 0 },
+      { id: 'pump-001', name: 'ESP32 Irrigation Pump', type: 'pump', status: 'offline', lastUpdate: 0, currentReading: 0 },
+      { id: 'ws-001', name: 'DHT22 Temp Sensor', type: 'weather_station', status: 'offline', lastUpdate: 0, currentReading: 0 },
+      { id: 'hum-001', name: 'DHT22 Humidity Sensor', type: 'sensor', status: 'offline', lastUpdate: 0, currentReading: 0 },
+      { id: 'soil-001', name: 'Soil Moisture Sensor', type: 'sensor', status: 'offline', lastUpdate: 0, currentReading: 0 },
     ];
   }
 

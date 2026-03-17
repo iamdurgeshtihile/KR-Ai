@@ -42,6 +42,12 @@ Copy this code into your Arduino IDE. Replace the placeholders with your WiFi cr
 
 // 3. Hardware Pins
 #define PUMP_PIN 26
+#define SOIL_PIN 34 // Analog pin for Soil Moisture Sensor
+#define DHT_PIN 27  // Digital pin for DHT22
+#define DHTTYPE DHT22 // Using DHT22 sensor
+
+#include "DHT.h"
+DHT dht(DHT_PIN, DHTTYPE);
 
 // Firebase Data objects
 FirebaseData fbdo;
@@ -52,6 +58,7 @@ void setup() {
   Serial.begin(115200);
   pinMode(PUMP_PIN, OUTPUT);
   digitalWrite(PUMP_PIN, LOW); // Ensure pump is off initially
+  dht.begin(); // Initialize DHT22
 
   // Connect to WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -64,56 +71,69 @@ void setup() {
 
   // Configure Firebase
   config.api_key = API_KEY;
+  config.database_url = "https://krishix-36276-default-rtdb.firebaseio.com"; // Add your RTDB URL
   
   // Enable Anonymous Auth
   auth.user_auth.anonymous = true;
 
   // Assign the callback function for the long running token generation task
   config.token_status_callback = tokenStatusCallback; 
-
+  
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
 }
 
 void loop() {
-  // Firebase.ready() should be called frequently to handle token tasks
   if (Firebase.ready()) {
-    // We poll the 'hardware_tasks' collection for any 'pending' tasks
-    // In a production app, you'd use a more efficient query or stream
+    // 1. READ SENSORS
+    // Note: 4095 is the max value for ESP32 ADC (12-bit).
+    // If you always see 4095, check your wiring or power to the sensor.
+    int rawMoisture = analogRead(SOIL_PIN);
     
-    String path = "hardware_tasks";
-    
-    // List documents in the collection
-    // Parameters: FirebaseData, ProjectID, DatabaseID, CollectionPath, QueryOptions
-    if (Firebase.Firestore.listDocuments(&fbdo, FIREBASE_PROJECT_ID, "(default)", path.c_str(), "")) {
-      String payload = fbdo.payload();
-      Serial.println("Checked tasks...");
+    // Convert raw (0-4095) to percentage (0-100)
+    // Adjust 4095 (Dry) and 0 (Wet) based on your sensor's calibration
+    int moisturePercent = map(rawMoisture, 4095, 0, 0, 100);
+    moisturePercent = constrain(moisturePercent, 0, 100);
 
-      // Simple check for "pending" and "IRRIGATION" in the raw JSON
-      // For production, use ArduinoJson library to parse properly
-      if (payload.indexOf("\"status\":\"pending\"") != -1 && payload.indexOf("\"type\":\"IRRIGATION\"") != -1) {
-        Serial.println(">>> PENDING IRRIGATION TASK FOUND! <<<");
-        
-        // 1. Turn on Pump
-        digitalWrite(PUMP_PIN, HIGH);
-        Serial.println("Pump ON");
-        
-        // 2. Wait (e.g., 5 seconds for demo)
-        delay(5000);
-        
-        // 3. Turn off Pump
-        digitalWrite(PUMP_PIN, LOW);
-        Serial.println("Pump OFF");
+    float temp = dht.readTemperature();
+    float hum = dht.readHumidity();
 
-        // Note: In a real app, you should extract the document ID from the payload
-        // and update its status to 'completed' using Firebase.Firestore.patchDocument
-        // to prevent the task from running again.
-      }
+    // Check if any reads failed and exit early (to try again).
+    if (isnan(hum) || isnan(temp)) {
+      Serial.println(F("Failed to read from DHT sensor!"));
+      delay(2000);
+      return;
+    }
+
+    // 2. SEND TELEMETRY TO RTDB
+    FirebaseJson json;
+    json.set("soilMoisture", rawMoisture); // Sending raw for precision
+    json.set("moisturePercent", moisturePercent);
+    json.set("temperature", temp);
+    json.set("humidity", hum);
+    json.set("timestamp", Firebase.getCurrentTime());
+
+    if (Firebase.RTDB.setJSON(&fbdo, "/telemetry", &json)) {
+      Serial.println("Telemetry sent to RTDB");
     } else {
       Serial.println(fbdo.errorReason());
     }
+
+    // 3. POLL FOR TASKS (Firestore)
+    String path = "hardware_tasks";
+    if (Firebase.Firestore.listDocuments(&fbdo, FIREBASE_PROJECT_ID, "(default)", path.c_str(), "")) {
+      String payload = fbdo.payload();
+      if (payload.indexOf("\"status\":\"pending\"") != -1 && payload.indexOf("\"type\":\"IRRIGATION\"") != -1) {
+        Serial.println(">>> PENDING IRRIGATION TASK FOUND! <<<");
+        digitalWrite(PUMP_PIN, HIGH);
+        delay(5000); // Run pump for 5 seconds
+        digitalWrite(PUMP_PIN, LOW);
+        
+        // Note: In production, update the Firestore document status to 'completed' here
+      }
+    }
   }
-  delay(10000); // Poll every 10 seconds to stay within free tier limits
+  delay(5000); // Update every 5 seconds
 }
 ```
 
