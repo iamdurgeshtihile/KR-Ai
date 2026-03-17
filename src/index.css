@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-hi: "Noto Sans Devanagari", sans-serif;
+  --font-mr: "Noto Sans Devanagari", sans-serif;
+  --font-bn: "Noto Sans Bengali", sans-serif;
+  --font-as: "Noto Sans Bengali", sans-serif;
+  --font-te: "Noto Sans Telugu", sans-serif;
+  --font-ta: "Noto Sans Tamil", sans-serif;
+  --font-gu: "Noto Sans Gujarati", sans-serif;
+  --font-kn: "Noto Sans Kannada", sans-serif;
+  --font-ml: "Noto Sans Malayalam", sans-serif;
+  --font-pa: "Noto Sans Gurmukhi", sans-serif;
+  --font-or: "Noto Sans Oriya", sans-serif;
+
+  --color-agri-forest: #064e3b;
+  --color-agri-moss: #059669;
+  --color-agri-leaf: #10b981;
+  --color-agri-clay: #d97706;
+  --color-agri-ivory: #f0fdf4;
+  --color-agri-sand: #d1fae5;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-agri-forest antialiased m-0 p-0;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/90 backdrop-blur-xl border border-white/50;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .product-card-shadow {
+    box-shadow: 0 10px 30px -10px rgba(6, 78, 59, 0.1);
+  }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out forwards;
+}

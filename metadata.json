@@ -1,7 +1,11 @@
 {
-  "name": "Kisan-Rakshak AI",
-  "description": "A smart diagnostic tool for farmers powered by Gemini AI, featuring animal behavior detection, veterinary derm-scan, and crop disease diagnosis.",
+  "name": "KrishiX",
+  "version": "1.1.0",
+  "author": "Senior Developer",
+  "description": "Production AI Agriculture & Veterinary Suite.",
   "requestFramePermissions": [
-    "microphone"
+    "camera",
+    "microphone",
+    "geolocation"
   ]
 }

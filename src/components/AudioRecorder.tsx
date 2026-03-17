@@ -3,9 +3,10 @@ import React, { useState, useRef } from 'react';
 interface AudioRecorderProps {
   onRecordingComplete: (blob: Blob) => void;
   isProcessing: boolean;
+  className?: string;
 }
 
-export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isProcessing }) => {
+export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplete, isProcessing, className }) => {
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -48,7 +49,7 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({ onRecordingComplet
       className={`p-3 rounded-full transition-all duration-300 ${
         isRecording 
           ? 'bg-red-500 hover:bg-red-600 animate-pulse ring-4 ring-red-200' 
-          : 'bg-green-100 text-green-700 hover:bg-green-200'
+          : className || 'bg-green-100 text-green-700 hover:bg-green-200'
       } disabled:opacity-50`}
       title={isRecording ? "Stop Recording" : "Start Voice Input"}
     >

@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "HardwareTask": {
+      "title": "Hardware Task",
+      "description": "A task to be executed by a physical hardware device (ESP32, etc.)",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The type of action (e.g., IRRIGATION, FERTILIZATION)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "executing", "completed", "failed"],
+          "description": "Current status of the task"
+        },
+        "progress": {
+          "type": "number",
+          "description": "Percentage completion (0-100)"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional parameters for the hardware"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["type", "status"]
+    }
+  },
+  "firestore": {
+    "hardware_tasks": {
+      "schema": "HardwareTask",
+      "description": "Queue of tasks for IoT devices"
+    }
+  }
+}
